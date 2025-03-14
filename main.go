@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -14,18 +14,24 @@ import (
 	"time"
 )
 
-const dataDir = "data" // 数据存储目录
-const port = 9999      // 服务端口
-const days = 7         // 数据保留天数
+const (
+	dataDir     = "data" // 数据存储目录
+	port        = 9999   // 服务端口
+	retainDays  = 7      // 数据保留天数
+	timeFormat  = "2006-01-02"
+	fileNameFmt = "data_%s.txt"
+	authUser    = "admin"  // 只读账号
+	authPass    = "123123" // 只读密码
+)
 
-var mu sync.Mutex
+var rwMu sync.RWMutex // 读写锁优化并发性能
 
-// 定义日志数据结构
 type LogEntry struct {
 	Time    string `json:"time"`
 	Level   string `json:"level"`
 	Message string `json:"message"`
 	Context struct {
+		Project string `json:"project"`
 		IP      string `json:"ip"`
 		Method  string `json:"method"`
 		FullURL string `json:"full_url"`
@@ -41,141 +47,152 @@ type LogEntry struct {
 	} `json:"context"`
 }
 
-// 获取当前日期的文件名
-func getFileName() string {
-	return filepath.Join(dataDir, "data_"+time.Now().Format("2006-01-02")+".txt")
+func getFileName(date time.Time) string {
+	return filepath.Join(dataDir, fmt.Sprintf(fileNameFmt, date.Format(timeFormat)))
 }
 
-// 写入数据到文件
 func writeHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "只允许POST方法", http.StatusMethodNotAllowed)
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		http.Error(w, "读取请求正文失败", http.StatusInternalServerError)
+		logError(r, "读取请求正文失败", err)
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	// 验证JSON格式
+	var tmp LogEntry
+	if err := json.Unmarshal(body, &tmp); err != nil {
+		logError(r, "无效的JSON格式", err)
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
 
-	// 直接将 JSON 数据作为一行追加到文件中
-	mu.Lock()
-	defer mu.Unlock()
+	rwMu.Lock()
+	defer rwMu.Unlock()
 
-	// 确保数据目录存在
 	if err := os.MkdirAll(dataDir, 0755); err != nil {
-		http.Error(w, "无法创建数据目录", http.StatusInternalServerError)
+		logError(r, "创建目录失败", err)
+		http.Error(w, "Internal Error", http.StatusInternalServerError)
 		return
 	}
 
-	file, err := os.OpenFile(getFileName(), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	filename := getFileName(time.Now().UTC())
+	file, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		http.Error(w, "无法打开文件", http.StatusInternalServerError)
+		logError(r, "打开文件失败", err)
+		http.Error(w, "Internal Error", http.StatusInternalServerError)
 		return
 	}
 	defer file.Close()
 
-	if _, err := file.Write(body); err != nil {
-		http.Error(w, "写入文件失败", http.StatusInternalServerError)
-		return
-	}
-	if _, err := file.WriteString("\n"); err != nil {
-		http.Error(w, "写入文件失败", http.StatusInternalServerError)
+	if _, err := file.Write(append(body, '\n')); err != nil {
+		logError(r, "写入文件失败", err)
+		http.Error(w, "Internal Error", http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"message": "数据保存成功"})
+	respondJSON(w, map[string]string{"status": "success"})
 }
 
-// 读取数据并渲染 HTML 页面
 func readHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "只允许使用GET方法", http.StatusMethodNotAllowed)
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	query := r.URL.Query()
-	date := query.Get("date")
-	if date == "" {
-		date = time.Now().Format("2006-01-02") // 默认显示当天的数据
+	dateStr := r.URL.Query().Get("date")
+	if dateStr == "" {
+		dateStr = time.Now().UTC().Format(timeFormat)
 	}
 
-	mu.Lock()
-	defer mu.Unlock()
+	date, err := time.Parse(timeFormat, dateStr)
+	if err != nil {
+		http.Error(w, "无效的日期格式", http.StatusBadRequest)
+		return
+	}
 
-	// 读取指定日期的文件
-	filePath := filepath.Join(dataDir, "data_"+date+".txt")
-	data, err := ioutil.ReadFile(filePath)
+	rwMu.RLock()
+	defer rwMu.RUnlock()
+
+	filePath := getFileName(date)
+	data, err := os.ReadFile(filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			data = []byte{} // 文件不存在时返回空数据
+			data = []byte{}
 		} else {
-			http.Error(w, "读取文件失败", http.StatusInternalServerError)
+			logError(r, "读取文件失败", err)
+			http.Error(w, "Internal Error", http.StatusInternalServerError)
 			return
 		}
 	}
 
-	// 解析每行 JSON 数据
-	var logEntries []LogEntry
-	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
-	for _, line := range lines {
+	var entries []LogEntry
+	for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
 		if line == "" {
 			continue
 		}
 		var entry LogEntry
 		if err := json.Unmarshal([]byte(line), &entry); err != nil {
-			fmt.Printf("无法解析 JSON 数据: %s, 错误: %v\n", line, err)
+			logError(r, "JSON解析失败", err)
 			continue
 		}
-		logEntries = append(logEntries, entry)
+		entries = append(entries, entry)
 	}
 
-	// 加载 HTML 模板
 	tmpl, err := template.ParseFiles("templates/read.html")
 	if err != nil {
-		http.Error(w, "无法加载模板", http.StatusInternalServerError)
+		logError(r, "模板加载失败", err)
+		http.Error(w, "Internal Error", http.StatusInternalServerError)
 		return
 	}
 
-	// 渲染模板并注入数据
 	w.Header().Set("Content-Type", "text/html")
-	tmpl.Execute(w, map[string]interface{}{
-		"LogEntries": logEntries,
-		"Date":       date,
-	})
+	if err := tmpl.Execute(w, map[string]interface{}{
+		"LogEntries": entries,
+		"Date":       dateStr,
+	}); err != nil {
+		logError(r, "模板渲染失败", err)
+	}
 }
 
-// 删除指定行的数据
 func deleteHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
-		http.Error(w, "只允许使用DELETE方法", http.StatusMethodNotAllowed)
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
 	query := r.URL.Query()
-	lineStr := query.Get("line")
-	if lineStr == "" {
-		http.Error(w, "行号是必需的", http.StatusBadRequest)
-		return
+	dateStr := query.Get("date")
+	if dateStr == "" {
+		dateStr = time.Now().UTC().Format(timeFormat)
 	}
 
-	lineNum, err := strconv.Atoi(lineStr)
-	if err != nil || lineNum < 1 {
-		http.Error(w, "行号无效", http.StatusBadRequest)
-		return
-	}
-
-	mu.Lock()
-	defer mu.Unlock()
-
-	// 读取指定日期的文件
-	date := time.Now().Format("2006-01-02")
-	filePath := filepath.Join(dataDir, "data_"+date+".txt")
-	data, err := ioutil.ReadFile(filePath)
+	date, err := time.Parse(timeFormat, dateStr)
 	if err != nil {
-		http.Error(w, "读取文件失败", http.StatusInternalServerError)
+		http.Error(w, "无效的日期格式", http.StatusBadRequest)
+		return
+	}
+
+	lineNum, err := strconv.Atoi(query.Get("line"))
+	if err != nil || lineNum < 1 {
+		http.Error(w, "无效的行号", http.StatusBadRequest)
+		return
+	}
+
+	rwMu.Lock()
+	defer rwMu.Unlock()
+
+	filePath := getFileName(date)
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		logError(r, "读取文件失败", err)
+		http.Error(w, "Internal Error", http.StatusInternalServerError)
 		return
 	}
 
@@ -185,68 +202,117 @@ func deleteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 删除指定行
 	newLines := append(lines[:lineNum-1], lines[lineNum:]...)
-	if err := ioutil.WriteFile(filePath, []byte(strings.Join(newLines, "\n")+"\n"), 0644); err != nil {
-		http.Error(w, "写入文件失败", http.StatusInternalServerError)
+	tmpPath := filePath + ".tmp"
+	content := strings.Join(newLines, "\n") + "\n"
+
+	if err := os.WriteFile(tmpPath, []byte(content), 0644); err != nil {
+		logError(r, "写入临时文件失败", err)
+		http.Error(w, "Internal Error", http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"message": "Line deleted successfully"})
+	if err := os.Rename(tmpPath, filePath); err != nil {
+		logError(r, "文件重命名失败", err)
+		http.Error(w, "Internal Error", http.StatusInternalServerError)
+		return
+	}
+
+	respondJSON(w, map[string]string{"status": "success"})
 }
 
-// 自动清理过期数据
-func cleanupOldData(days int) {
-	files, err := ioutil.ReadDir(dataDir)
+func cleanupOldData() {
+	rwMu.Lock()
+	defer rwMu.Unlock()
+
+	files, err := os.ReadDir(dataDir)
 	if err != nil {
-		fmt.Println("无法读取数据目录:", err)
+		logError(nil, "清理任务-读取目录失败", err)
 		return
 	}
 
-	now := time.Now()
-	for _, file := range files {
-		if file.IsDir() {
+	now := time.Now().UTC()
+	for _, f := range files {
+		if f.IsDir() {
 			continue
 		}
 
-		// 解析文件名中的日期
-		fileName := file.Name()
-		if !strings.HasPrefix(fileName, "data_") || !strings.HasSuffix(fileName, ".txt") {
+		name := f.Name()
+		if !strings.HasPrefix(name, "data_") || !strings.HasSuffix(name, ".txt") {
 			continue
 		}
-		dateStr := strings.TrimPrefix(strings.TrimSuffix(fileName, ".txt"), "data_")
-		fileDate, err := time.Parse("2006-01-02", dateStr)
+
+		dateStr := strings.TrimSuffix(strings.TrimPrefix(name, "data_"), ".txt")
+		fileDate, err := time.Parse(timeFormat, dateStr)
 		if err != nil {
-			fmt.Printf("无法解析文件名中的日期: %s\n", fileName)
+			logError(nil, "清理任务-解析日期失败", err)
 			continue
 		}
 
-		// 删除超过指定天数的文件
-		if now.Sub(fileDate).Hours() > float64(days*24) {
-			filePath := filepath.Join(dataDir, fileName)
+		if now.Sub(fileDate).Hours() > float64(retainDays*24) {
+			filePath := filepath.Join(dataDir, name)
 			if err := os.Remove(filePath); err != nil {
-				fmt.Printf("无法删除文件: %s, 错误: %v\n", filePath, err)
+				logError(nil, "清理任务-删除文件失败", err)
 			} else {
-				fmt.Printf("已删除过期文件: %s\n", filePath)
+				fmt.Printf("已清理过期文件: %s\n", filePath)
 			}
 		}
 	}
 }
 
+func logError(r *http.Request, msg string, err error) {
+	logStr := fmt.Sprintf("[ERROR] %s - %v", msg, err)
+	if r != nil {
+		logStr = fmt.Sprintf("%s [%s %s]", logStr, r.Method, r.URL.Path)
+	}
+	fmt.Println(logStr)
+}
+
+func respondJSON(w http.ResponseWriter, data interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		logError(nil, "JSON响应失败", err)
+	}
+}
+
+func basicAuth(h http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user, pass, ok := r.BasicAuth()
+		if !ok || user != authUser || pass != authPass {
+			w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		h(w, r)
+	}
+}
+
 func main() {
-	// 启动定时任务，每天清理一次过期数据
+	// 初始化清理任务
 	go func() {
+		ticker := time.NewTicker(24 * time.Hour)
+		defer ticker.Stop()
+
 		for {
-			cleanupOldData(days)
-			time.Sleep(24 * time.Hour)
+			cleanupOldData()
+			<-ticker.C
 		}
 	}()
+
+	// 创建必要目录
+	if err := os.MkdirAll(dataDir, 0755); err != nil {
+		panic(fmt.Sprintf("无法创建数据目录: %v", err))
+	}
+
+	// 配置路由
 	http.HandleFunc("/write", writeHandler)
-	http.HandleFunc("/read", readHandler)
+	http.HandleFunc("/read", basicAuth(readHandler))
 	http.HandleFunc("/delete", deleteHandler)
-	fmt.Printf("Server started at :%d\n", port)
-	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil); err != nil {
-		fmt.Printf("Server failed to start: %v\n", err)
+
+	// 启动服务器
+	serverAddr := fmt.Sprintf(":%d", port)
+	fmt.Printf("服务器启动于 %s\n", serverAddr)
+	if err := http.ListenAndServe(serverAddr, nil); err != nil {
+		panic(fmt.Sprintf("服务器启动失败: %v", err))
 	}
 }
