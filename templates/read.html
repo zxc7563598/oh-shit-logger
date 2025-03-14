@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>完蛋啦，服务器炸了💥</title>
+    <style>
+        :root {
+            --primary-color: #ff4444;
+            --secondary-color: #555;
+            --background-color: #f9f9f9;
+            --card-shadow: rgba(9, 10, 12, 0.1) 0px 8px 16px -2px, rgba(9, 10, 12, 0.02) 0px 0px 0px 1px;
+            --border-radius: 12px;
+            --font-family: Arial, sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            white-space: normal;
+            word-wrap: break-word;
+        }
+
+        body {
+            font-family: var(--font-family);
+            margin: 20px;
+        }
+
+        h1 {
+            color: var(--primary-color);
+        }
+
+        form {
+            margin: 20px auto;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        form label {
+            font-weight: bold;
+        }
+
+        form input[type="date"] {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        form button {
+            padding: 8px 16px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        form button:hover {
+            background-color: #cc0000;
+        }
+
+        .card {
+            border-radius: var(--border-radius);
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: var(--card-shadow);
+            position: relative;
+            background-color: white;
+        }
+
+        .main-info {
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+
+        .main-info .time {
+            color: var(--secondary-color);
+            display: inline-block;
+            margin: 0 8px 8px 0;
+        }
+
+        .main-info .level {
+            color: white;
+            background-color: var(--primary-color);
+            padding: 2px 4px;
+            border-radius: 4px;
+            display: inline-block;
+            margin: 0 8px 8px 0;
+        }
+
+        .main-info .message {
+            color: #333;
+            display: inline-block;
+            margin: 0 8px 8px 0;
+        }
+
+        .secondary-info {
+            color: var(--secondary-color);
+            margin-bottom: 12px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .secondary-info .ip,
+        .secondary-info .url,
+        .secondary-info .method {
+            margin: 0;
+            word-break: break-all;
+            padding: 8px 12px;
+            border-radius: 6px;
+            display: inline-block;
+            background-color: var(--background-color);
+            transition: background-color 0.3s ease;
+        }
+
+        .secondary-info .ip:hover,
+        .secondary-info .url:hover,
+        .secondary-info .method:hover {
+            background-color: #e0e0e0;
+        }
+
+        .error {
+            background-color: #fff5f5;
+            border-left: 4px solid var(--primary-color);
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 12px;
+        }
+
+        .error .message {
+            color: var(--primary-color);
+            font-weight: bold;
+            margin-bottom: 8px;
+            font-size: 1.1em;
+        }
+
+        .error .file,
+        .error .line {
+            color: var(--secondary-color);
+            font-size: 0.9em;
+            margin-bottom: 4px;
+        }
+
+        .details {
+            border-radius: 4px;
+            margin-top: 8px;
+            background-color: var(--background-color);
+            padding: 12px;
+        }
+
+        .trace-list {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .trace-list li {
+            padding: 8px 0;
+            margin-bottom: 4px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .trace-list li:last-child {
+            border-bottom: none;
+        }
+
+        .trace-list li .info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9em;
+        }
+
+        .trace-list li .info span {
+            padding: 4px 8px;
+            border-radius: 4px;
+            background-color: #e0e0e0;
+            color: var(--secondary-color);
+        }
+
+        .delete-button {
+            position: absolute;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            top: 16px;
+            right: 16px;
+        }
+
+        .delete-button:hover {
+            background-color: #cc0000;
+        }
+
+        @media (max-width: 768px) {
+            form {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .card {
+                padding: 12px;
+            }
+
+            .main-info {
+                font-size: 1em;
+            }
+
+            .secondary-info .ip,
+            .secondary-info .method,
+            .secondary-info .url {
+                display: block;
+                margin: 8px 0;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <h1>完蛋啦，服务器炸了💥</h1>
+    <form action="/read" method="get">
+        <label for="date">爆炸日期:</label>
+        <input type="date" id="date" name="date" value="{{.Date}}">
+        <button type="submit">查看</button>
+    </form>
+    {{range $index, $entry := .LogEntries}}
+    <div class="card">
+        <button class="delete-button" onclick="deleteLine({{$index}})">删除</button>
+        <div class="main-info">
+            <span class="level">{{$entry.Level}}</span>
+            <span class="time">{{$entry.Time}}</span>
+            <span class="message">{{$entry.Message}}</span>
+        </div>
+        <div class="secondary-info">
+            <span class="ip">{{$entry.Context.IP}}</span>
+            <span class="url">{{$entry.Context.FullURL}}</span>
+            <span class="method">{{$entry.Context.Method}}</span>
+        </div>
+        <div class="error">
+            <div class="message">{{$entry.Context.Trace.Message}}</div>
+            <div class="file">{{$entry.Context.Trace.File}}</div>
+            <div class="line">{{$entry.Context.Trace.Line}}</div>
+        </div>
+
+        <div class="details">
+            <ul class="trace-list">
+                {{range $entry.Context.Trace.Trace}}
+                <li>
+                    <div class="info">
+                        <span>{{.Line}}</span>{{.File}}
+                    </div>
+                </li>
+                {{end}}
+            </ul>
+        </div>
+    </div>
+    {{end}}
+    <script>
+        // 删除指定行
+        function deleteLine(lineNum) {
+
+            fetch(`/delete?line=${lineNum + 1}`, { method: 'DELETE' })
+                .then(response => response.json())
+                .then(data => {
+                    location.reload(); // 刷新页面
+                })
+                .catch(error => console.error('Error:', error));
+        }
+    </script>
+</body>
+
+</html>
