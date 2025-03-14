@@ -5,6 +5,12 @@
 因为 bug 太多，日志太乱，服务器太远，人在加班，心态崩盘。  
 所以我写了这么个**倒霉玩意**，用来收集远程日志，免得我老是去翻服务器。
 
+这个破脚本是基于我自己的 [php-tools](https://github.com/zxc7563598/php-tools) 实现的日志记录系统。
+
+我把它扔到服务器上，让项目里那些要命的异常能通过网络偷偷通知我，争取在老板冲出来骂我之前，先把锅给悄悄补上。
+
+也许未来我会给它加上邮件通知功能……也许吧。但说实话，我有点担心我的邮箱会被这些破 bug 直接轰炸成垃圾场
+
 ### **它能干嘛？**
 
 **别指望它很强，它就干三件事**：
@@ -15,25 +21,104 @@
 
 ### **怎么用？**
 
-1. 启动它（就这破玩意，能跑就行）：
+1. 把代码拉到你自己的服务器上
+   
+   ```bash
+    cd /usr/local && git clone https://github.com/zxc7563598/oh-shit-logger.git
+   ```
+   > 也许你会考虑更换一下端口，或者日志保留天数，在 main.go 中
+
+2. 编译你的 Go 脚本：
 
     ```bash
-    go run main.go
+    go build -o oh-shit-logger main.go
     ```
-2. 让你的项目 POST 日志过来：
+3. 创建一个 `systemd` 服务文件：
 
     ```bash
-    curl -X POST -d "error=服务器又双叒叕炸了" http://localhost:8080/write
+    sudo nano /etc/systemd/system/oh-shit-logger.service
     ```
-3. 访问 `/read`​ 查看日志：
+4. 在文件中添加以下内容：
 
-    ```bash
-    curl http://localhost:8080/read
+    ```ini
+    [Unit]
+    Description=oh shit logger
+    After=network.target
+
+    [Service]
+    ExecStart=/usr/local/oh-shit-logger/oh-shit-logger
+    Restart=always
+    User=root
+    WorkingDirectory=/usr/local/oh-shit-logger
+
+    [Install]
+    WantedBy=multi-user.target
     ```
-4. 删除某一行日志：
+
+    * `ExecStart`：指定 Go 程序的路径。
+    * `Restart=always`：如果程序崩溃，自动重启。
+    * `User`：运行程序的用户（例如 `ubuntu`）。
+    * `WorkingDirectory`：程序的工作目录。
+5. 保存并退出编辑器，然后重新加载 `systemd` 配置：
 
     ```bash
-    curl -X DELETE "http://localhost:8080/delete?line=2"
+    sudo systemctl daemon-reload
+    ```
+6. 启动服务：
+
+    ```bash
+    sudo systemctl start oh-shit-logger
+    ```
+7. 设置开机自启动：
+
+    ```bash
+    sudo systemctl enable oh-shit-logger
+    ```
+8. 检查服务状态：
+
+    ```bash
+    sudo systemctl status oh-shit-logger
+    ```
+9.  停止服务：
+
+    ```bash
+    sudo systemctl stop oh-shit-logger
+    ```
+10. 访问 `/read`​ 查看日志：
+
+    ```bash
+    curl http://服务器ip:端口号/read
+    ```
+11. 删除某一行日志：
+
+    ```bash
+    curl -X DELETE "http://服务器ip:端口号/delete?line=2"
+    ```
+
+- 其他的项目也可以直接 POST 日志过来，大概格式如下：
+
+    ```bash
+    curl -X POST http://localhost:8080/write -H "Content-Type: application/json" -d '{
+        "time": "2025-03-14 10:14:36",
+        "level": "ERROR",
+        "message": "Call to undefined method stdClass::orderBy()",
+        "context": {
+            "ip": "127.0.0.1",
+            "method": "POST",
+            "full_url": "//127.0.0.1:7776/api/points-mall/user-management/get-data",
+            "trace": {
+                "message": "Call to undefined method stdClass::orderBy()",
+                "file": "/Users/lisiqi/Documents/bilibili-danmuji/app/controller/shop/management/UserManagementController.php",
+                "line": 45,
+                "trace": [
+                    {
+                    "file": "/Users/lisiqi/Documents/bilibili-danmuji/vendor/workerman/webman-framework/src/App.php",
+                    "line": 343
+                    }
+                ]
+            }
+        }
+    }'
     ```
 
 ### **结语**
