@@ -81,6 +81,15 @@
             margin: 0 8px 8px 0;
         }
 
+        .main-info .project {
+            color: white;
+            background-color: rgb(66, 88, 255);
+            padding: 2px 4px;
+            border-radius: 4px;
+            display: inline-block;
+            margin: 0 8px 8px 0;
+        }
+
         .main-info .level {
             color: white;
             background-color: var(--primary-color);
@@ -232,6 +241,7 @@
     <div class="card">
         <button class="delete-button" onclick="deleteLine({{$index}})">删除</button>
         <div class="main-info">
+            <span class="project">{{$entry.Context.Project}}</span>
             <span class="level">{{$entry.Level}}</span>
             <span class="time">{{$entry.Time}}</span>
             <span class="message">{{$entry.Message}}</span>
