@@ -15,13 +15,13 @@ import (
 )
 
 const (
-	dataDir     = "data" // 数据存储目录
-	port        = 9999   // 服务端口
-	retainDays  = 7      // 数据保留天数
-	timeFormat  = "2006-01-02"
-	fileNameFmt = "data_%s.txt"
-	authUser    = "admin"  // 只读账号
-	authPass    = "123123" // 只读密码
+	dataDir     = "data"        // 数据存储目录
+	port        = 9999          // 服务端口
+	retainDays  = 7             // 数据保留天数
+	timeFormat  = "2006-01-02"  // 日期格式
+	fileNameFmt = "data_%s.txt" // 文件名格式
+	authUser    = "admin"       // 账号，记得改
+	authPass    = "123123"      // 密码，记得改
 )
 
 var rwMu sync.RWMutex // 读写锁优化并发性能
