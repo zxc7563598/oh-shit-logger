@@ -273,8 +273,13 @@
     <script>
         // 删除指定行
         function deleteLine(lineNum) {
-
-            fetch(`/delete?line=${lineNum + 1}`, { method: 'DELETE' })
+            let dateInput = document.querySelector('input[type="date"]');
+            let dateValue = dateInput.value;
+            let url = `/delete?line=${lineNum + 1}`;
+            if (dateValue) {
+                url += `&date=${dateValue}`;
+            }
+            fetch(url, { method: 'DELETE' })
                 .then(response => response.json())
                 .then(data => {
                     location.reload(); // 刷新页面
