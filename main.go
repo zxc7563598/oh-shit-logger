@@ -36,12 +36,13 @@ type LogEntry struct {
 		Method  string `json:"method"`
 		FullURL string `json:"full_url"`
 		Trace   struct {
-			Class   string       `json:"class"`
-			Message string       `json:"message"`
-			Code    int          `json:"code"`
-			File    string       `json:"file"`
-			Line    int          `json:"line"`
-			Trace   []StackFrame `json:"trace"`
+			Class    string       `json:"class"`
+			Message  string       `json:"message"`
+			Code     string       `json:"code"` // 注意这里你传的是字符串类型，应为 string
+			File     string       `json:"file"`
+			Line     int          `json:"line"`
+			Trace    []StackFrame `json:"trace"`
+			Previous interface{}  `json:"previous"`
 		} `json:"trace"`
 	} `json:"context"`
 }
