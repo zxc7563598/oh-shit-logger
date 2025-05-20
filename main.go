@@ -36,15 +36,23 @@ type LogEntry struct {
 		Method  string `json:"method"`
 		FullURL string `json:"full_url"`
 		Trace   struct {
-			Message string `json:"message"`
-			File    string `json:"file"`
-			Line    int    `json:"line"`
-			Trace   []struct {
-				File string `json:"file"`
-				Line int    `json:"line"`
-			} `json:"trace"`
+			Class    string       `json:"class"`
+			Message  string       `json:"message"`
+			Code     int          `json:"code"`
+			File     string       `json:"file"`
+			Line     int          `json:"line"`
+			Trace    []StackFrame `json:"trace"`
+			Previous interface{}  `json:"previous"`
 		} `json:"trace"`
 	} `json:"context"`
+}
+
+type StackFrame struct {
+	File     string `json:"file"`
+	Line     int    `json:"line"`
+	Function string `json:"function,omitempty"`
+	Class    string `json:"class,omitempty"`
+	Type     string `json:"type,omitempty"`
 }
 
 func getFileName(date time.Time) string {
