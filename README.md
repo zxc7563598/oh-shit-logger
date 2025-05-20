@@ -138,8 +138,7 @@
                       "class": "Webman\\App",
                       "type": "->"
                   }
-              ],
-              "previous": null
+              ]
           }
       }
   }'

@@ -36,13 +36,12 @@ type LogEntry struct {
 		Method  string `json:"method"`
 		FullURL string `json:"full_url"`
 		Trace   struct {
-			Class    string       `json:"class"`
-			Message  string       `json:"message"`
-			Code     int          `json:"code"`
-			File     string       `json:"file"`
-			Line     int          `json:"line"`
-			Trace    []StackFrame `json:"trace"`
-			Previous interface{}  `json:"previous"`
+			Class   string       `json:"class"`
+			Message string       `json:"message"`
+			Code    int          `json:"code"`
+			File    string       `json:"file"`
+			Line    int          `json:"line"`
+			Trace   []StackFrame `json:"trace"`
 		} `json:"trace"`
 	} `json:"context"`
 }
