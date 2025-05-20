@@ -1,292 +1,278 @@
 <!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>完蛋啦，服务器炸了💥</title>
+<html lang="zh">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>错误日志中心 - 🚨爆炸追踪</title>
     <style>
-        :root {
-            --primary-color: #ff4444;
-            --secondary-color: #555;
-            --background-color: #f9f9f9;
-            --card-shadow: rgba(9, 10, 12, 0.1) 0px 8px 16px -2px, rgba(9, 10, 12, 0.02) 0px 0px 0px 1px;
-            --border-radius: 12px;
-            --font-family: Arial, sans-serif;
+      :root {
+        --primary: #e74c3c;
+        --accent: #3498db;
+        --bg: #f4f4f9;
+        --text: #333;
+        --muted: #999;
+        --radius: 10px;
+        --shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: "Segoe UI", sans-serif;
+        background-color: var(--bg);
+        color: var(--text);
+        padding: 20px;
+      }
+
+      h1 {
+        color: var(--primary);
+        font-size: 2em;
+        margin-bottom: 20px;
+      }
+
+      form {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 30px;
+      }
+
+      input[type="date"],
+      button {
+        padding: 10px;
+        border-radius: var(--radius);
+        border: 1px solid #ccc;
+      }
+
+      button {
+        background-color: var(--primary);
+        color: white;
+        cursor: pointer;
+      }
+
+      button:hover {
+        background-color: #c0392b;
+      }
+
+      .log-card {
+        background: #fff;
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        padding: 20px;
+        margin-bottom: 20px;
+        position: relative;
+      }
+
+      .log-header {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+
+      .tags {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .tag {
+        padding: 5px 10px;
+        border-radius: 6px;
+        font-size: 0.85em;
+        font-weight: bold;
+        color: white;
+      }
+
+      .level {
+        background-color: var(--primary);
+      }
+
+      .project {
+        background-color: var(--accent);
+      }
+
+      .type {
+        background-color: #2ecc71;
+      }
+
+      .timestamp {
+        padding: 5px 10px;
+        font-size: 0.85em;
+        color: var(--muted);
+      }
+
+      .right-info {
+        display: flex;
+        flex-direction: row;
+        align-items: flex-end;
+        gap: 5px;
+      }
+
+      .buttons {
+        padding: 5px 10px;
+        border-radius: 6px;
+        font-size: 0.85em;
+        font-weight: bold;
+        color: white;
+      }
+
+      .message {
+        margin: 10px 0;
+        font-size: 1.1em;
+        font-weight: bold;
+        color: #444;
+      }
+
+      .context {
+        font-size: 0.9em;
+        color: var(--text);
+        background-color: #f9f9f9;
+        padding: 15px;
+        border-radius: 8px;
+        border-left: 4px solid var(--text);
+      }
+
+      .context table {
+        border: 0;
+        font-size: 12px;
+        font-family: monospace;
+      }
+
+      .trace-toggle {
+        background-color: transparent;
+        color: var(--accent);
+        border: none;
+        cursor: pointer;
+        margin-top: 10px;
+      }
+
+      .details {
+        width: 100%;
+        margin-top: 10px;
+        font-size: 0.9em;
+        background-color: #f9f9f9;
+        padding: 15px;
+        border-radius: 6px;
+        font-family: monospace;
+        border: 0;
+        border-left: 4px solid var(--accent);
+      }
+
+      .details-ul {
+        margin-top: 8px;
+        padding-left: 20px;
+        list-style-type: disc;
+      }
+
+      .details-ul li {
+        margin-bottom: 4px;
+        color: #555;
+        line-height: 1.4;
+      }
+
+      @media (max-width: 600px) {
+        .log-header {
+          flex-direction: column;
+          align-items: flex-start;
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            white-space: normal;
-            word-wrap: break-word;
+        .right-info {
+          align-items: flex-start;
+          margin-top: 10px;
         }
-
-        body {
-            font-family: var(--font-family);
-            margin: 20px;
-        }
-
-        h1 {
-            color: var(--primary-color);
-        }
-
-        form {
-            margin: 20px auto;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        form label {
-            font-weight: bold;
-        }
-
-        form input[type="date"] {
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-
-        form button {
-            padding: 8px 16px;
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-
-        form button:hover {
-            background-color: #cc0000;
-        }
-
-        .card {
-            border-radius: var(--border-radius);
-            padding: 16px;
-            margin-bottom: 16px;
-            box-shadow: var(--card-shadow);
-            position: relative;
-            background-color: white;
-        }
-
-        .main-info {
-            font-size: 1.2em;
-            font-weight: bold;
-        }
-
-        .main-info .time {
-            color: var(--secondary-color);
-            display: inline-block;
-            margin: 0 8px 8px 0;
-        }
-
-        .main-info .project {
-            color: white;
-            background-color: rgb(66, 88, 255);
-            padding: 2px 4px;
-            border-radius: 4px;
-            display: inline-block;
-            margin: 0 8px 8px 0;
-        }
-
-        .main-info .level {
-            color: white;
-            background-color: var(--primary-color);
-            padding: 2px 4px;
-            border-radius: 4px;
-            display: inline-block;
-            margin: 0 8px 8px 0;
-        }
-
-        .main-info .message {
-            color: #333;
-            display: inline-block;
-            margin: 0 8px 8px 0;
-        }
-
-        .secondary-info {
-            color: var(--secondary-color);
-            margin-bottom: 12px;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-
-        .secondary-info .ip,
-        .secondary-info .url,
-        .secondary-info .method {
-            margin: 0;
-            word-break: break-all;
-            padding: 8px 12px;
-            border-radius: 6px;
-            display: inline-block;
-            background-color: var(--background-color);
-            transition: background-color 0.3s ease;
-        }
-
-        .secondary-info .ip:hover,
-        .secondary-info .url:hover,
-        .secondary-info .method:hover {
-            background-color: #e0e0e0;
-        }
-
-        .error {
-            background-color: #fff5f5;
-            border-left: 4px solid var(--primary-color);
-            padding: 12px;
-            border-radius: 4px;
-            margin-bottom: 12px;
-        }
-
-        .error .message {
-            color: var(--primary-color);
-            font-weight: bold;
-            margin-bottom: 8px;
-            font-size: 1.1em;
-        }
-
-        .error .file,
-        .error .line {
-            color: var(--secondary-color);
-            font-size: 0.9em;
-            margin-bottom: 4px;
-        }
-
-        .details {
-            border-radius: 4px;
-            margin-top: 8px;
-            background-color: var(--background-color);
-            padding: 12px;
-        }
-
-        .trace-list {
-            list-style-type: none;
-            padding: 0;
-            margin: 0;
-        }
-
-        .trace-list li {
-            padding: 8px 0;
-            margin-bottom: 4px;
-            border-bottom: 1px solid #ddd;
-        }
-
-        .trace-list li:last-child {
-            border-bottom: none;
-        }
-
-        .trace-list li .info {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 0.9em;
-        }
-
-        .trace-list li .info span {
-            padding: 4px 8px;
-            border-radius: 4px;
-            background-color: #e0e0e0;
-            color: var(--secondary-color);
-        }
-
-        .delete-button {
-            position: absolute;
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
-            padding: 4px 8px;
-            border-radius: 4px;
-            cursor: pointer;
-            top: 16px;
-            right: 16px;
-        }
-
-        .delete-button:hover {
-            background-color: #cc0000;
-        }
-
-        @media (max-width: 768px) {
-            form {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-
-            .card {
-                padding: 12px;
-            }
-
-            .main-info {
-                font-size: 1em;
-            }
-
-            .secondary-info .ip,
-            .secondary-info .method,
-            .secondary-info .url {
-                display: block;
-                margin: 8px 0;
-            }
-        }
+      }
     </style>
-</head>
+  </head>
 
-<body>
-    <h1>完蛋啦，服务器炸了💥</h1>
+  <body>
+    <h1>🚨 错误日志中心</h1>
+
     <form action="/read" method="get">
-        <label for="date">爆炸日期:</label>
-        <input type="date" id="date" name="date" value="{{.Date}}">
-        <button type="submit">查看</button>
+      <input type="date" id="date" name="date" value="{{.Date}}" />
+      <button type="submit">查看日志</button>
     </form>
-    {{range $index, $entry := .LogEntries}}
-    <div class="card">
-        <button class="delete-button" onclick="deleteLine({{$index}})">删除</button>
-        <div class="main-info">
-            <span class="project">{{$entry.Context.Project}}</span>
-            <span class="level">{{$entry.Level}}</span>
-            <span class="time">{{$entry.Time}}</span>
-            <span class="message">{{$entry.Message}}</span>
-        </div>
-        <div class="secondary-info">
-            <span class="ip">{{$entry.Context.IP}}</span>
-            <span class="url">{{$entry.Context.FullURL}}</span>
-            <span class="method">{{$entry.Context.Method}}</span>
-        </div>
-        <div class="error">
-            <div class="message">{{$entry.Context.Trace.Message}}</div>
-            <div class="file">{{$entry.Context.Trace.File}}</div>
-            <div class="line">{{$entry.Context.Trace.Line}}</div>
-        </div>
 
-        <div class="details">
-            <ul class="trace-list">
-                {{range $entry.Context.Trace.Trace}}
-                <li>
-                    <div class="info">
-                        <span>{{.Line}}</span>{{.File}}
-                    </div>
-                </li>
-                {{end}}
-            </ul>
+    {{range $index, $entry := .LogEntries}}
+    <div class="log-card">
+      <div class="log-header">
+        <div class="tags">
+          <div class="tag level">{{$entry.Level}}</div>
+          <div class="tag project">{{$entry.Context.Project}}</div>
+          <div class="tag type">{{$entry.Context.Trace.Class}}</div>
         </div>
+        <div class="right-info">
+          <div class="timestamp">{{$entry.Time}}</div>
+
+          <button class="buttons" onclick="deleteLine({{$index}})">删除</button>
+        </div>
+      </div>
+
+      <div class="message">{{$entry.Message}}</div>
+
+      <div class="context">
+        <strong>请求信息:</strong><br />
+        <table>
+          <tr>
+            <td>IP:</td>
+            <td style="padding-left: 0.5rem">{{$entry.Context.IP}}</td>
+          </tr>
+          <tr>
+            <td>Method:</td>
+            <td style="padding-left: 0.5rem">{{$entry.Context.Method}}</td>
+          </tr>
+          <tr>
+            <td>URL:</td>
+            <td style="padding-left: 0.5rem">{{$entry.Context.FullURL}}</td>
+          </tr>
+        </table>
+      </div>
+
+      {{if $entry.Context.Trace}}
+      <table class="details">
+        <tr>
+          <td>错误:</td>
+          <td style="padding-left: 0.5rem">{{$entry.Context.Trace.Message}}</td>
+        </tr>
+        <tr>
+          <td>位置:</td>
+          <td style="padding-left: 0.5rem">
+            {{$entry.Context.Trace.File}}:{{$entry.Context.Trace.Line}}
+          </td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>
+            <ul class="details-ul">
+              {{range $entry.Context.Trace.Trace}}
+              <li>{{.File}}:{{.Line}}</li>
+              {{end}}
+            </ul>
+          </td>
+        </tr>
+      </table>
+      {{end}}
     </div>
     {{end}}
-    <script>
-        // 删除指定行
-        function deleteLine(lineNum) {
-            let dateInput = document.querySelector('input[type="date"]');
-            let dateValue = dateInput.value;
-            let url = `/delete?line=${lineNum + 1}`;
-            if (dateValue) {
-                url += `&date=${dateValue}`;
-            }
-            fetch(url, { method: 'DELETE' })
-                .then(response => response.json())
-                .then(data => {
-                    location.reload(); // 刷新页面
-                })
-                .catch(error => console.error('Error:', error));
-        }
-    </script>
-</body>
 
+    <script>
+      function deleteLine(lineNum) {
+        let dateInput = document.querySelector('input[type="date"]');
+        let dateValue = dateInput.value;
+        let url = `/delete?line=${lineNum + 1}`;
+        if (dateValue) {
+          url += `&date=${dateValue}`;
+        }
+        fetch(url, { method: "DELETE" })
+          .then((response) => response.json())
+          .then(() => location.reload())
+          .catch((error) => console.error("删除失败:", error));
+      }
+    </script>
+  </body>
 </html>

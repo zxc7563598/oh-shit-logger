@@ -1,4 +1,4 @@
-# 完蛋日志💥
+# 完蛋日志 💥
 
 ### **为什么有这个破玩意？**
 
@@ -22,73 +22,83 @@
 ### **怎么用？**
 
 1. 把代码拉到你自己的服务器上
-   
+
    ```bash
     cd /usr/local && git clone https://github.com/zxc7563598/oh-shit-logger.git
    ```
+
    > 也许你会考虑更换一下端口，或者日志保留天数，在 main.go 中
 
 2. 编译你的 Go 脚本：
 
-    ```bash
-    go build -o oh-shit-logger main.go
-    ```
+   ```bash
+   go build -o oh-shit-logger main.go
+   ```
+
 3. 创建一个 `systemd` 服务文件：
 
-    ```bash
-    sudo nano /etc/systemd/system/oh-shit-logger.service
-    ```
+   ```bash
+   sudo nano /etc/systemd/system/oh-shit-logger.service
+   ```
+
 4. 在文件中添加以下内容：
 
-    ```ini
-    [Unit]
-    Description=oh shit logger
-    After=network.target
+   ```ini
+   [Unit]
+   Description=oh shit logger
+   After=network.target
 
-    [Service]
-    ExecStart=/usr/local/oh-shit-logger/oh-shit-logger
-    Restart=always
-    User=root
-    WorkingDirectory=/usr/local/oh-shit-logger
+   [Service]
+   ExecStart=/usr/local/oh-shit-logger/oh-shit-logger
+   Restart=always
+   User=root
+   WorkingDirectory=/usr/local/oh-shit-logger
 
-    [Install]
-    WantedBy=multi-user.target
-    ```
+   [Install]
+   WantedBy=multi-user.target
+   ```
 
-    * `ExecStart`：指定 Go 程序的路径。
-    * `Restart=always`：如果程序崩溃，自动重启。
-    * `User`：运行程序的用户（例如 `ubuntu`）。
-    * `WorkingDirectory`：程序的工作目录。
+   - `ExecStart`：指定 Go 程序的路径。
+   - `Restart=always`：如果程序崩溃，自动重启。
+   - `User`：运行程序的用户（例如 `ubuntu`）。
+   - `WorkingDirectory`：程序的工作目录。
+
 5. 保存并退出编辑器，然后重新加载 `systemd` 配置：
 
-    ```bash
-    sudo systemctl daemon-reload
-    ```
+   ```bash
+   sudo systemctl daemon-reload
+   ```
+
 6. 启动服务：
 
-    ```bash
-    sudo systemctl start oh-shit-logger
-    ```
+   ```bash
+   sudo systemctl start oh-shit-logger
+   ```
+
 7. 设置开机自启动：
 
-    ```bash
-    sudo systemctl enable oh-shit-logger
-    ```
+   ```bash
+   sudo systemctl enable oh-shit-logger
+   ```
+
 8. 检查服务状态：
 
-    ```bash
-    sudo systemctl status oh-shit-logger
-    ```
-9.  停止服务：
+   ```bash
+   sudo systemctl status oh-shit-logger
+   ```
 
-    ```bash
-    sudo systemctl stop oh-shit-logger
-    ```
+9. 停止服务：
+
+   ```bash
+   sudo systemctl stop oh-shit-logger
+   ```
+
 10. 访问 `/read`​ 查看日志：
 
     ```bash
     curl http://服务器ip:端口号/read
     ```
+
 11. 删除某一行日志：
 
     ```bash
@@ -97,34 +107,47 @@
 
 - 其他的项目也可以直接 POST 日志过来，大概格式如下：
 
-    ```bash
-    curl -X POST http://localhost:8080/write -H "Content-Type: application/json" -d '{
-        "time": "2025-03-14 10:14:36",
-        "level": "ERROR",
-        "message": "Call to undefined method stdClass::orderBy()",
-        "context": {
-            "project": "BilibiliDanmuji",
-            "ip": "127.0.0.1",
-            "method": "POST",
-            "full_url": "//127.0.0.1:7776/api/points-mall/user-management/get-data",
-            "trace": {
-                "message": "Call to undefined method stdClass::orderBy()",
-                "file": "/Users/lisiqi/Documents/bilibili-danmuji/app/controller/shop/management/UserManagementController.php",
-                "line": 45,
-                "trace": [
-                    {
-                    "file": "/Users/lisiqi/Documents/bilibili-danmuji/vendor/workerman/webman-framework/src/App.php",
-                    "line": 343
-                    }
-                ]
-            }
-        }
-    }'
-    ```
+  ```bash
+  curl -X POST http://localhost:8080/write -H "Content-Type: application/json" -d '{
+      "time": "2025-05-20 09:58:31",
+      "level": "ERROR",
+      "message": "Division by zero",
+      "context": {
+          "project": "ToolsApi",
+          "ip": "127.0.0.1",
+          "method": "GET",
+          "full_url": "//127.0.0.1:8787/test",
+          "trace": {
+              "class": "DivisionByZeroError",
+              "message": "Division by zero",
+              "code": 0,
+              "file": "/Users/lisiqi/Documents/ToolsApi/config/route.php",
+              "line": 25,
+              "trace": [
+                  {
+                      "file": "/Users/lisiqi/Documents/ToolsApi/vendor/workerman/webman-framework/src/App.php",
+                      "line": 150,
+                      "function": "{closure}",
+                      "class": "Webman\\Route",
+                      "type": "::"
+                  },
+                  {
+                      "file": "/Users/lisiqi/Documents/ToolsApi/vendor/workerman/workerman/src/Connection/TcpConnection.php",
+                      "line": 741,
+                      "function": "onMessage",
+                      "class": "Webman\\App",
+                      "type": "->"
+                  }
+              ],
+              "previous": null
+          }
+      }
+  }'
+  ```
 
 ### **结语**
 
 反正就是个临时抱佛脚的东西，我没心情做得多优雅，能用就行。  
 如果你也在被 bug 折磨，不妨用它来当垃圾桶，至少你可以把屎山日志收集到一个地方，而不是每次 SSH 上去翻半天。
 
- **—— 写这破玩意的时候，我想休假 🫠**
+**—— 写这破玩意的时候，我想休假 🫠**
