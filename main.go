@@ -521,6 +521,7 @@ func main() {
 		}
 	})
 	http.HandleFunc("/chat-stream", chatStreamHandler)
+	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 	// 启动服务器
 	serverAddr := fmt.Sprintf(":%d", Port)
 	fmt.Printf("服务器启动于 %s\n", serverAddr)
