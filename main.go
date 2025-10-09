@@ -242,26 +242,47 @@ func deleteHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "无效的日期格式", http.StatusBadRequest)
 		return
 	}
-	lineNum, err := strconv.Atoi(query.Get("line"))
-	if err != nil || lineNum < 1 {
-		http.Error(w, "无效的行号", http.StatusBadRequest)
+	uuid := strings.TrimSpace(query.Get("uuid"))
+	if uuid == "" {
+		http.Error(w, "缺少 uuid 参数", http.StatusBadRequest)
 		return
 	}
+	filePath := getFileName(date)
 	rwMu.Lock()
 	defer rwMu.Unlock()
-	filePath := getFileName(date)
 	data, err := os.ReadFile(filePath)
 	if err != nil {
+		if os.IsNotExist(err) {
+			http.Error(w, "日志文件不存在", http.StatusNotFound)
+			return
+		}
 		logError(r, "读取文件失败", err)
 		http.Error(w, "Internal Error", http.StatusInternalServerError)
 		return
 	}
 	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
-	if lineNum > len(lines) {
-		http.Error(w, "行号超出范围", http.StatusBadRequest)
+	found := false
+	newLines := make([]string, 0, len(lines))
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		var entry LogEntry
+		if err := json.Unmarshal([]byte(line), &entry); err != nil {
+			newLines = append(newLines, line)
+			continue
+		}
+		if entry.UUID == uuid {
+			found = true
+			continue
+		}
+		newLines = append(newLines, line)
+	}
+	if !found {
+		http.Error(w, "未找到对应 UUID", http.StatusNotFound)
 		return
 	}
-	newLines := append(lines[:lineNum-1], lines[lineNum:]...)
 	tmpPath := filePath + ".tmp"
 	content := strings.Join(newLines, "\n") + "\n"
 	if err := os.WriteFile(tmpPath, []byte(content), 0644); err != nil {
