@@ -17,9 +17,10 @@ import (
 )
 
 const (
-	dataDir     = "data"        // 数据存储目录
-	timeFormat  = "2006-01-02"  // 日期格式
-	fileNameFmt = "data_%s.txt" // 文件名格式
+	dataDir     = "data"
+	timeFormat  = "2006-01-02"
+	fileNameFmt = "data_%s.txt"
+	configFile  = "config.json"
 )
 
 var (
@@ -73,6 +74,7 @@ func getFileName(date time.Time) string {
 	return filepath.Join(dataDir, fmt.Sprintf(fileNameFmt, date.Format(timeFormat)))
 }
 
+// POST /write - 写入日志
 func writeHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Only POST allowed", http.StatusMethodNotAllowed)
@@ -120,6 +122,7 @@ func writeHandler(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, map[string]string{"status": "success"})
 }
 
+// GET /read - 读取日志
 func readHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
@@ -188,7 +191,7 @@ func readHandler(w http.ResponseWriter, r *http.Request) {
 	renderTemplate(w, dateStr, entries, page, lineCount, pageSize)
 }
 
-// 🔹 模板渲染封装
+// 辅助方法 - 渲染 HTML 模板
 func renderTemplate(w http.ResponseWriter, dateStr string, entries []LogEntry, page, total, pageSize int) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	err := logTemplate.Execute(w, map[string]any{
@@ -205,7 +208,7 @@ func renderTemplate(w http.ResponseWriter, dateStr string, entries []LogEntry, p
 	}
 }
 
-// 🔹 字符串转 int 的工具函数
+// 辅助方法 - 字符串转int
 func parseInt(s string, def int) int {
 	if s == "" {
 		return def
@@ -217,6 +220,7 @@ func parseInt(s string, def int) int {
 	return v
 }
 
+// DELETE /delete - 删除指定日志行
 func deleteHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
@@ -267,6 +271,7 @@ func deleteHandler(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, map[string]string{"status": "success"})
 }
 
+// 定时任务 - 定期清理过期日志文件
 func cleanupOldData() {
 	rwMu.Lock()
 	defer rwMu.Unlock()
@@ -301,6 +306,7 @@ func cleanupOldData() {
 	}
 }
 
+// 辅助方法 - 统一错误日志输出
 func logError(r *http.Request, msg string, err error) {
 	logStr := fmt.Sprintf("[ERROR] %s - %v", msg, err)
 	if r != nil {
@@ -309,6 +315,7 @@ func logError(r *http.Request, msg string, err error) {
 	fmt.Println(logStr)
 }
 
+// 辅助方法 - JSON 响应
 func respondJSON(w http.ResponseWriter, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(data); err != nil {
@@ -316,6 +323,7 @@ func respondJSON(w http.ResponseWriter, data interface{}) {
 	}
 }
 
+// 基本认证中间件
 func basicAuth(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if AuthUser == "" && AuthPass == "" {
@@ -330,6 +338,58 @@ func basicAuth(h http.HandlerFunc) http.HandlerFunc {
 		}
 		h(w, r)
 	}
+}
+
+type Config struct {
+	APIKey string `json:"api_key"`
+}
+
+// GET /apikey - 获取当前 API Key
+func getAPIKey(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	var cfg Config
+	data, err := os.ReadFile(configFile)
+	if err == nil {
+		_ = json.Unmarshal(data, &cfg)
+	}
+	resp := map[string]string{"api_key": cfg.APIKey}
+	json.NewEncoder(w).Encode(resp)
+}
+
+// POST /apikey - 保存新的 API Key
+func saveConfig(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req map[string]string
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "读取请求体失败", http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+	if err := json.Unmarshal(body, &req); err != nil {
+		http.Error(w, "JSON 解析失败", http.StatusBadRequest)
+		return
+	}
+	key, ok := req["api_key"]
+	if !ok {
+		http.Error(w, "缺少 api_key 字段", http.StatusBadRequest)
+		return
+	}
+	cfg := Config{APIKey: key}
+	data, _ := json.MarshalIndent(cfg, "", "  ")
+	if err := os.WriteFile(configFile, data, 0600); err != nil {
+		http.Error(w, "保存失败", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
 func main() {
@@ -355,6 +415,16 @@ func main() {
 	http.HandleFunc("/write", writeHandler)
 	http.HandleFunc("/read", basicAuth(readHandler))
 	http.HandleFunc("/delete", deleteHandler)
+	http.HandleFunc("/apikey", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			getAPIKey(w, r)
+		case http.MethodPost:
+			saveConfig(w, r)
+		default:
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		}
+	})
 	// 启动服务器
 	serverAddr := fmt.Sprintf(":%d", Port)
 	fmt.Printf("服务器启动于 %s\n", serverAddr)
