@@ -1,4 +1,9 @@
-# 完蛋日志 💥
+# 🧾 oh-shit-logger
+
+<div align="center">
+  <a href="./README.md">English</a>｜<a href="./README.zh-CN.md">简体中文</a>
+  <hr width="50%"/>
+</div>
 
 一个用 Go 编写的轻量级错误日志收集与分析网站，用来集中管理多个 PHP 项目~~(其他项目也可以，都可以，只不过我的大部分项目都是 PHP 所以我这么说)~~的错误日志，并借助 **DeepSeek** 帮助你更快定位问题。
 

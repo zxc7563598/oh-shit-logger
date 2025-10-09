@@ -1,4 +1,9 @@
-# 🧾 FinBoard Backend
+# 🧾 oh-shit-logger
+
+<div align="center">
+  <a href="./README.md">English</a>｜<a href="./README.zh-CN.md">简体中文</a>
+  <hr width="50%"/>
+</div>
 
 A lightweight error log collection and analysis web application written in Go, designed to centrally manage error logs from multiple PHP projects ~~(other projects are fine too, but most of mine are PHP, so that's why I say it this way)~~ and leverage **DeepSeek** to help you quickly pinpoint issues.
 
