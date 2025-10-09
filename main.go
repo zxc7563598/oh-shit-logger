@@ -34,7 +34,6 @@ var (
 	AuthUser    string
 	AuthPass    string
 	rwMu        sync.RWMutex
-	dsClient    *deepseek.Client
 	logTemplate = template.Must(
 		template.New("read.html").
 			Funcs(template.FuncMap{
