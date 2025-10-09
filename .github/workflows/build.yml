@@ -3,7 +3,7 @@ name: Build Go Binary
 on:
   push:
     branches:
-      - main
+      - main  # 只有 main 分支更新时才触发
 
 jobs:
   build:
@@ -24,8 +24,16 @@ jobs:
           GOOS=linux GOARCH=amd64 go build -o dist/app main.go
           echo "✅ Build finished: dist/app"
 
-      - name: Upload binary as artifact
+      - name: Package binary and assets
+        run: |
+          cd dist
+          mkdir -p package
+          mv app package/
+          cp -r ../templates ../static package/ || true
+          tar -czf app-linux.tar.gz -C package .
+
+      - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: linux-binary
-          path: dist/app
+          name: app-linux
+          path: dist/app-linux.tar.gz
