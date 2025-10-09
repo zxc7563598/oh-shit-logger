@@ -1,278 +1,210 @@
 <!DOCTYPE html>
 <html lang="zh">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>完蛋啦，服务器炸了💥</title>
-    <style>
-      :root {
-        --primary: #e74c3c;
-        --accent: #3498db;
-        --bg: #f4f4f9;
-        --text: #333;
-        --muted: #999;
-        --radius: 10px;
-        --shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-      }
+<head>
+  <meta charset="UTF-8" />
+  <title>错误日志查看器</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* 防止换行并截断文本 */
+    .truncate-cell {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 250px;
+      cursor: pointer;
+    }
 
-      * {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
-      }
+    /* 弹窗遮罩 */
+    #modalOverlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background-color: rgba(0,0,0,0.5);
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+    }
 
-      body {
-        font-family: "Segoe UI", sans-serif;
-        background-color: var(--bg);
-        color: var(--text);
-        padding: 20px;
-      }
+    /* 弹窗内容 */
+    #modalContent {
+      background: white;
+      border-radius: 0.75rem;
+      max-width: 800px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+      padding: 1.5rem;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    }
 
-      h1 {
-        color: var(--primary);
-        font-size: 2em;
-        margin-bottom: 20px;
-      }
+    pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: #f9fafb;
+      padding: 1rem;
+      border-radius: 0.5rem;
+    }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
 
-      form {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-        margin-bottom: 30px;
-      }
+  <div class="max-w-7xl mx-auto py-10 px-4">
+    <h1 class="text-3xl font-semibold mb-6 text-center text-gray-700">🧾 错误日志查看器</h1>
 
-      input[type="date"],
-      button {
-        padding: 10px;
-        border-radius: var(--radius);
-        border: 1px solid #ccc;
-      }
-
-      button {
-        background-color: var(--primary);
-        color: white;
-        cursor: pointer;
-      }
-
-      button:hover {
-        background-color: #c0392b;
-      }
-
-      .log-card {
-        background: #fff;
-        border-radius: var(--radius);
-        box-shadow: var(--shadow);
-        padding: 20px;
-        margin-bottom: 20px;
-        position: relative;
-      }
-
-      .log-header {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 10px;
-      }
-
-      .tags {
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
-      }
-
-      .tag {
-        padding: 5px 10px;
-        border-radius: 6px;
-        font-size: 0.85em;
-        font-weight: bold;
-        color: white;
-      }
-
-      .level {
-        background-color: var(--primary);
-      }
-
-      .project {
-        background-color: var(--accent);
-      }
-
-      .type {
-        background-color: #2ecc71;
-      }
-
-      .timestamp {
-        padding: 5px 10px;
-        font-size: 0.85em;
-        color: var(--muted);
-      }
-
-      .right-info {
-        display: flex;
-        flex-direction: row;
-        align-items: flex-end;
-        gap: 5px;
-      }
-
-      .buttons {
-        padding: 5px 10px;
-        border-radius: 6px;
-        font-size: 0.85em;
-        font-weight: bold;
-        color: white;
-      }
-
-      .message {
-        margin: 10px 0;
-        font-size: 1.1em;
-        font-weight: bold;
-        color: #444;
-      }
-
-      .context {
-        font-size: 0.9em;
-        color: var(--text);
-        background-color: #f9f9f9;
-        padding: 15px;
-        border-radius: 8px;
-        border-left: 4px solid var(--text);
-      }
-
-      .context table {
-        border: 0;
-        font-size: 12px;
-        font-family: monospace;
-      }
-
-      .trace-toggle {
-        background-color: transparent;
-        color: var(--accent);
-        border: none;
-        cursor: pointer;
-        margin-top: 10px;
-      }
-
-      .details {
-        width: 100%;
-        margin-top: 10px;
-        font-size: 0.9em;
-        background-color: #f9f9f9;
-        padding: 15px;
-        border-radius: 6px;
-        font-family: monospace;
-        border: 0;
-        border-left: 4px solid var(--accent);
-      }
-
-      .details-ul {
-        margin-top: 8px;
-        padding-left: 20px;
-        list-style-type: disc;
-      }
-
-      .details-ul li {
-        margin-bottom: 4px;
-        color: #555;
-        line-height: 1.4;
-      }
-
-      @media (max-width: 600px) {
-        .log-header {
-          flex-direction: column;
-          align-items: flex-start;
-        }
-
-        .right-info {
-          align-items: flex-start;
-          margin-top: 10px;
-        }
-      }
-    </style>
-  </head>
-
-  <body>
-    <h1>完蛋啦，服务器炸了💥</h1>
-
-    <form action="/read" method="get">
-      <input type="date" id="date" name="date" value="{{.Date}}" />
-      <button type="submit">查看日志</button>
+    <!-- 搜索框 -->
+    <form method="GET" action="/read" class="flex items-center justify-center gap-3 mb-6">
+      <input
+        type="date"
+        name="date"
+        value="{{.Date}}"
+        class="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+      <button
+        type="submit"
+        class="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700 transition"
+      >
+        搜索
+      </button>
     </form>
 
-    {{range $index, $entry := .LogEntries}}
-    <div class="log-card">
-      <div class="log-header">
-        <div class="tags">
-          <div class="tag level">{{$entry.Level}}</div>
-          <div class="tag project">{{$entry.Context.Project}}</div>
-          <div class="tag type">{{$entry.Context.Trace.Class}}</div>
-        </div>
-        <div class="right-info">
-          <div class="timestamp">{{$entry.Time}}</div>
-
-          <button class="buttons" onclick="deleteLine({{$index}})">删除</button>
-        </div>
-      </div>
-
-      <div class="message">{{$entry.Message}}</div>
-
-      <div class="context">
-        <strong>请求信息:</strong><br />
-        <table>
+    <!-- 日志表格 -->
+    {{if .LogEntries}}
+    <div class="overflow-x-auto bg-white shadow-md rounded-lg">
+      <table class="min-w-full table-fixed divide-y divide-gray-200">
+        <thead class="bg-gray-100">
           <tr>
-            <td>IP:</td>
-            <td style="padding-left: 0.5rem">{{$entry.Context.IP}}</td>
+            <th class="w-40 px-4 py-2 text-left text-sm font-semibold text-gray-600">时间</th>
+            <th class="w-40 px-4 py-2 text-left text-sm font-semibold text-gray-600">项目</th>
+            <th class="w-28 px-4 py-2 text-left text-sm font-semibold text-gray-600">等级</th>
+            <th class="w-96 px-4 py-2 text-left text-sm font-semibold text-gray-600">信息</th>
+            <th class="w-96 px-4 py-2 text-left text-sm font-semibold text-gray-600">文件</th>
+            <th class="w-64 px-4 py-2 text-left text-sm font-semibold text-gray-600">操作</th>
           </tr>
-          <tr>
-            <td>Method:</td>
-            <td style="padding-left: 0.5rem">{{$entry.Context.Method}}</td>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {{range $index, $entry := .LogEntries}}
+          <tr class="hover:bg-gray-50 transition">
+            <td class="px-4 py-2 text-sm text-gray-700 truncate-cell" title="{{.Timestamp}}">{{.Timestamp}}</td>
+            <td class="px-4 py-2 text-sm text-gray-700 truncate-cell" title="{{.Project}}">{{.Project}}</td>
+            <td class="px-4 py-2 text-sm">
+              <span class="px-2 py-1 text-xs rounded-full 
+                {{if eq .Level "error"}}bg-red-100 text-red-700
+                {{else if eq .Level "warning"}}bg-yellow-100 text-yellow-700
+                {{else}}bg-green-100 text-green-700{{end}}">
+                {{.Level}}
+              </span>
+            </td>
+            <td class="px-4 py-2 text-sm text-gray-700 truncate-cell" title="{{.Message}}">{{.Message}}</td>
+            <td class="px-4 py-2 text-sm text-gray-500 truncate-cell" title="{{.File}}:{{.Line}}">{{.File}}:{{.Line}}</td>
+            <td class="px-4 py-2 text-sm text-gray-500 truncate-cell">
+              <button onclick="viewDetails(this)" data-index="{{$index}}" class="text-blue-600 hover:underline text-sm">查看</button>
+              <button onclick="deleteLine(this)" data-index="{{$index}}" class="text-red-600 hover:underline text-sm ml-3">删除</button>
+            </td>
           </tr>
-          <tr>
-            <td>URL:</td>
-            <td style="padding-left: 0.5rem">{{$entry.Context.FullURL}}</td>
-          </tr>
-        </table>
-      </div>
-
-      {{if $entry.Context.Trace}}
-      <table class="details">
-        <tr>
-          <td>错误:</td>
-          <td style="padding-left: 0.5rem">{{$entry.Context.Trace.Message}}</td>
-        </tr>
-        <tr>
-          <td>位置:</td>
-          <td style="padding-left: 0.5rem">
-            {{$entry.Context.Trace.File}}:{{$entry.Context.Trace.Line}}
-          </td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>
-            <ul class="details-ul">
-              {{range $entry.Context.Trace.Trace}}
-              <li>{{.File}}:{{.Line}}</li>
-              {{end}}
-            </ul>
-          </td>
-        </tr>
+          {{end}}
+        </tbody>
       </table>
-      {{end}}
     </div>
+    {{else}}
+    <div class="text-center text-gray-500 mt-10">暂无日志记录</div>
     {{end}}
 
-    <script>
-      function deleteLine(lineNum) {
-        let dateInput = document.querySelector('input[type="date"]');
-        let dateValue = dateInput.value;
-        let url = `/delete?line=${lineNum + 1}`;
-        if (dateValue) {
-          url += `&date=${dateValue}`;
-        }
-        fetch(url, { method: "DELETE" })
-          .then((response) => response.json())
-          .then(() => location.reload())
-          .catch((error) => console.error("删除失败:", error));
-      }
-    </script>
-  </body>
+    <!-- 分页 -->
+    <div class="flex justify-center items-center gap-4 mt-8">
+      {{if gt .Page 1}}
+      <a href="/read?date={{.Date}}&page={{sub .Page 1}}" 
+        class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition">上一页</a>
+      {{end}}
+      <span class="text-gray-600 text-sm">第 {{.Page}} 页</span>
+      {{if .HasNext}}
+      <a href="/read?date={{.Date}}&page={{add .Page 1}}" 
+        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">下一页</a>
+      {{end}}
+    </div>
+  </div>
+
+  <!-- 弹窗 -->
+    <div id="modalOverlay" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden" onclick="closeModal()">
+        <div class="bg-white max-w-3xl w-full p-6 rounded-lg shadow-lg relative max-h-[90vh] flex flex-col" onclick="event.stopPropagation()">
+            <h2 class="text-xl font-semibold mb-3">AI解读</h2>
+            <div class="bg-white max-w-3xl w-full p-6 ">AI解读</div>
+            <h2 class="text-xl font-semibold mb-3">日志详情</h2>
+            <div id="contentWrapper" class="relative overflow-hidden transition-all duration-300 flex-1">
+            <pre id="modalText" class="text-xs whitespace-pre-wrap break-words"></pre>
+            <div id="fadeOverlay" class="absolute bottom-0 left-0 w-full h-8 bg-gradient-to-t from-white to-transparent pointer-events-none"></div>
+            </div>
+            <div class="flex justify-between items-center mt-3">
+                <button id="toggleBtn" class="text-blue-600 hover:underline text-sm">展开更多</button>
+            </div>
+        </div>
+    </div>
+</div>
+<script id="log-data" type="application/json">
+{{ toJson .LogEntries }}
+</script>
+<script>
+  const dataElem = document.getElementById('log-data');
+  const modalOverlay = document.getElementById('modalOverlay');
+  const contentWrapper = document.getElementById('contentWrapper');
+  const fadeOverlay = document.getElementById('fadeOverlay');
+  const toggleBtn = document.getElementById('toggleBtn');
+  const modalText = document.getElementById('modalText');
+
+
+  let logEntries = [];
+  try {
+    logEntries = JSON.parse(dataElem.textContent || '[]');
+  } catch (e) {
+    console.error('解析日志数据失败', e);
+    logEntries = [];
+  }
+
+  function viewDetails(btn) {
+    const index = parseInt(btn.dataset.index, 10);
+    const entry = logEntries[index];
+    modalText.textContent = JSON.stringify(entry, null, 2);
+    contentWrapper.classList.add('max-h-20');
+    contentWrapper.style.overflowY = 'hidden';
+    fadeOverlay.style.display = 'block';
+    toggleBtn.textContent = '展开更多';
+    modalOverlay.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeModal() {
+    modalOverlay.style.display = 'none';
+    document.body.style.overflow = '';
+  }
+
+  toggleBtn.addEventListener('click', () => {
+    if (contentWrapper.classList.contains('max-h-20')) {
+      // 展开
+      contentWrapper.classList.remove('max-h-20');
+      contentWrapper.style.overflowY = 'auto';
+      fadeOverlay.style.display = 'none';
+      toggleBtn.textContent = '收起';
+    } else {
+      // 收起
+      contentWrapper.classList.add('max-h-20');
+      contentWrapper.style.overflowY = 'hidden';
+      fadeOverlay.style.display = 'block';
+      toggleBtn.textContent = '展开更多';
+    }
+  });
+
+  function deleteLine(lineNum) {
+    let dateInput = document.querySelector('input[type="date"]');
+    let dateValue = dateInput.value;
+    let url = `/delete?line=${lineNum + 1}`;
+    if (dateValue) {
+      url += `&date=${dateValue}`;
+    }
+    fetch(url, { method: "DELETE" })
+      .then((response) => response.json())
+      .then(() => location.reload())
+      .catch((error) => console.error("删除失败:", error));
+  }
+</script>
+
+</body>
 </html>
