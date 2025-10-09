@@ -65,6 +65,12 @@
       >
         搜索
       </button>
+      <button
+        type="button" onclick="viewDeepSeekEdit()"
+        class="bg-green-600 text-white px-5 py-2 rounded-lg hover:bg-green-700 transition"
+      >
+        配置 DeepSeek API Key
+      </button>
     </form>
 
     <!-- 日志表格 -->
@@ -126,8 +132,6 @@
   <!-- 弹窗 -->
     <div id="modalOverlay" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden" onclick="closeModal()">
         <div class="bg-white max-w-3xl w-full p-6 rounded-lg shadow-lg relative max-h-[90vh] flex flex-col" onclick="event.stopPropagation()">
-            <h2 class="text-xl font-semibold mb-3">AI解读</h2>
-            <div class="bg-white max-w-3xl w-full p-6 ">AI解读</div>
             <h2 class="text-xl font-semibold mb-3">日志详情</h2>
             <div id="contentWrapper" class="relative overflow-hidden transition-all duration-300 flex-1">
             <pre id="modalText" class="text-xs whitespace-pre-wrap break-words"></pre>
@@ -135,6 +139,26 @@
             </div>
             <div class="flex justify-between items-center mt-3">
                 <button id="toggleBtn" class="text-blue-600 hover:underline text-sm">展开更多</button>
+            </div>
+        </div>
+    </div>
+    <div id="modalApiKeyEdit" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden" onclick="closeApiKeyModal()">
+        <div class="bg-white max-w-3xl w-full p-6 rounded-lg shadow-lg relative max-h-[90vh] flex flex-col" onclick="event.stopPropagation()">
+            <h2 class="text-xl font-semibold mb-3">配置 API KEY</h2>
+            <div class="flex">
+                <input
+                    type="text"
+                    id="apiKeyInput"
+                    value=""
+                    class="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 flex-1"
+                />
+                <button
+                    type="submit"
+                    class="bg-green-600 text-white px-5 py-2 rounded-lg hover:bg-green-700 transition w-32"
+                    onclick="saveApiKey()"
+                >
+                    保存
+                </button>
             </div>
         </div>
     </div>
@@ -149,7 +173,9 @@
   const fadeOverlay = document.getElementById('fadeOverlay');
   const toggleBtn = document.getElementById('toggleBtn');
   const modalText = document.getElementById('modalText');
-
+  const modalApiKeyEdit = document.getElementById('modalApiKeyEdit');
+  const apiKeyInput = document.getElementById('apiKeyInput');
+  const apiKey = '';
 
   let logEntries = [];
   try {
@@ -157,6 +183,38 @@
   } catch (e) {
     console.error('解析日志数据失败', e);
     logEntries = [];
+  }
+
+  function viewDeepSeekEdit() {
+    fetch(`/apikey`, { method: "GET" }).then(res => res.json()).then(data => {
+        console.log(data)
+        modalApiKeyEdit.style.display = 'flex';
+        apiKeyInput.value = data.api_key || '';
+    }).catch(err => {
+        console.error('获取 API Key 失败', err)
+        alert('获取 API Key 失败');
+    });
+  }
+
+  function saveApiKey(){
+        const newApiKey = apiKeyInput.value.trim();
+        fetch("/apikey", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ api_key: newApiKey })
+        }).then(res => res.json()).then(data => {
+            alert('保存成功');
+            closeApiKeyModal();
+        }).catch(err => {
+            console.error('保存 API Key 失败', err)
+            alert('保存 API Key 失败');
+        })
+  }
+
+  function closeApiKeyModal() {
+        modalApiKeyEdit.style.display = 'none';
   }
 
   function viewDetails(btn) {
