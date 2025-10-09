@@ -2,11 +2,14 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"html/template"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -14,6 +17,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	deepseek "github.com/cohesion-org/deepseek-go"
 )
 
 const (
@@ -29,6 +34,7 @@ var (
 	AuthUser    string
 	AuthPass    string
 	rwMu        sync.RWMutex
+	dsClient    *deepseek.Client
 	logTemplate = template.Must(
 		template.New("read.html").
 			Funcs(template.FuncMap{
@@ -392,6 +398,75 @@ func saveConfig(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
+// /api/chat-stream 接口：接收前端传入消息内容，返回流式响应
+func chatStreamHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	type Req struct {
+		Messages []deepseek.ChatCompletionMessage `json:"messages"`
+		Model    string                           `json:"model"`
+	}
+	var req Req
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Bad Request: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	var cfg Config
+	data, err := os.ReadFile(configFile)
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	if err := json.Unmarshal(data, &cfg); err != nil || cfg.APIKey == "" {
+		http.Error(w, "Deepseek API Key 未配置", http.StatusInternalServerError)
+		return
+	}
+	dsClient := deepseek.NewClient(cfg.APIKey)
+	streamReq := &deepseek.StreamChatCompletionRequest{
+		Model:    req.Model,
+		Messages: req.Messages,
+		Stream:   true,
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	stream, err := dsClient.CreateChatCompletionStream(ctx, streamReq)
+	if err != nil {
+		log.Println("Deepseek stream error:", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	defer stream.Close()
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Transfer-Encoding", "chunked")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "Streaming not supported", http.StatusInternalServerError)
+		return
+	}
+	var full string
+	for {
+		resp, err := stream.Recv()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			log.Println("Stream Recv error:", err)
+			break
+		}
+		for _, choice := range resp.Choices {
+			delta := choice.Delta.Content
+			full += delta
+			fmt.Fprintf(w, "%s", delta)
+		}
+		flusher.Flush()
+	}
+	fmt.Fprint(w, "\n")
+}
+
 func main() {
 	flag.IntVar(&Port, "port", 9999, "服务端口")
 	flag.IntVar(&RetainDays, "retain", 7, "日志保留天数")
@@ -425,6 +500,7 @@ func main() {
 			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		}
 	})
+	http.HandleFunc("/chat-stream", chatStreamHandler)
 	// 启动服务器
 	serverAddr := fmt.Sprintf(":%d", Port)
 	fmt.Printf("服务器启动于 %s\n", serverAddr)

@@ -104,7 +104,7 @@
             <td class="px-4 py-2 text-sm text-gray-500 truncate-cell" title="{{.File}}:{{.Line}}">{{.File}}:{{.Line}}</td>
             <td class="px-4 py-2 text-sm text-gray-500 truncate-cell">
               <button onclick="viewDetails(this)" data-index="{{$index}}" class="text-blue-600 hover:underline text-sm">查看</button>
-              <button onclick="deleteLine(this)" data-index="{{$index}}" class="text-red-600 hover:underline text-sm ml-3">删除</button>
+              <button onclick="deleteLine(this)" data-uuid="{{.UUID}}" class="text-red-600 hover:underline text-sm ml-3">删除</button>
             </td>
           </tr>
           {{end}}
@@ -132,6 +132,19 @@
   <!-- 弹窗 -->
     <div id="modalOverlay" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden" onclick="closeModal()">
         <div class="bg-white max-w-3xl w-full p-6 rounded-lg shadow-lg relative max-h-[90vh] flex flex-col" onclick="event.stopPropagation()">
+            <h2 class="text-xl font-semibold mb-3">
+                AI解读
+                <button
+                    type="button"
+                    class="bg-green-600 text-white px-2 py-1 text-sm float-right rounded-lg hover:bg-green-700 transition"
+                    onclick="chatStream()"
+                >
+                    立即分析
+                </button>
+            </h2>
+            <pre id="chatStreamText" class="text-xs whitespace-pre-wrap break-words"></pre>
+            <div class="bg-white w-full p-6 ">
+            </div>
             <h2 class="text-xl font-semibold mb-3">日志详情</h2>
             <div id="contentWrapper" class="relative overflow-hidden transition-all duration-300 flex-1">
             <pre id="modalText" class="text-xs whitespace-pre-wrap break-words"></pre>
@@ -153,7 +166,7 @@
                     class="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 flex-1"
                 />
                 <button
-                    type="submit"
+                    type="button"
                     class="bg-green-600 text-white px-5 py-2 rounded-lg hover:bg-green-700 transition w-32"
                     onclick="saveApiKey()"
                 >
@@ -175,6 +188,7 @@
   const modalText = document.getElementById('modalText');
   const modalApiKeyEdit = document.getElementById('modalApiKeyEdit');
   const apiKeyInput = document.getElementById('apiKeyInput');
+  const chatStreamText = document.getElementById('chatStreamText');
   const apiKey = '';
 
   let logEntries = [];
@@ -217,8 +231,8 @@
         modalApiKeyEdit.style.display = 'none';
   }
 
-  function viewDetails(btn) {
-    const index = parseInt(btn.dataset.index, 10);
+  function viewDetails(data) {
+    const index = parseInt(data.dataset.index, 10);
     const entry = logEntries[index];
     modalText.textContent = JSON.stringify(entry, null, 2);
     contentWrapper.classList.add('max-h-20');
@@ -250,10 +264,50 @@
     }
   });
 
-  function deleteLine(lineNum) {
+  async function chatStream(){
+    const obj = JSON.parse(modalText.textContent)
+    delete obj.context
+    delete obj.server
+    const entry = JSON.stringify(obj)
+    const prompt = `你将收到一个PHP项目的错误信息(JSON格式)，请你只根据错误内容简洁分析以下两点：
+1. 这是什么问题（说明错误原因）
+2. 我应该关注哪些地方来修复这个问题（指出关键文件、行号、可能出错的逻辑）
+
+要求：
+- 不要输出任何无意义的开头或总结
+- 不要使用markdown语法或多余格式
+- 直接以纯文本方式输出，适合放在<pre>标签内展示
+- 保持逻辑清晰，段落分明
+
+下面是错误信息：${entry}`
+    const response = await fetch("/chat-stream", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            model: "deepseek-chat",
+            messages: [
+            { role: "user", content: prompt }
+            ]
+        })
+    });
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let result = "";
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        result += decoder.decode(value, { stream: true });
+        // 你可以在这里实时更新前端显示
+        chatStreamText.textContent = result;
+    }
+  }
+
+  function deleteLine(data) {
     let dateInput = document.querySelector('input[type="date"]');
     let dateValue = dateInput.value;
-    let url = `/delete?line=${lineNum + 1}`;
+    let url = `/delete?uuid=${data.dataset.uuid}`;
     if (dateValue) {
       url += `&date=${dateValue}`;
     }
